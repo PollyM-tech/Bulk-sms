@@ -18,6 +18,19 @@ from resources.auth import (
     PasswordResetRequestResource,
     PasswordResetResource,
 )
+from resources.contacts import (
+    ContactListResource,
+    ContactResource,
+    ContactOptOutResource,
+)
+
+from resources.groups import (
+    GroupListResource,
+    GroupResource,
+    GroupContactsResource,
+    GroupContactItemResource,
+)
+
 
 load_dotenv()
 
@@ -57,6 +70,18 @@ api.add_resource(LoginResource, "/auth/login")
 api.add_resource(LogoutResource, "/auth/logout")
 api.add_resource(PasswordResetRequestResource, "/auth/request-reset")
 api.add_resource(PasswordResetResource, "/auth/reset-password")
+
+# ---- Contact routes ----
+api.add_resource(ContactListResource, "/contacts")
+api.add_resource(ContactResource, "/contacts/<int:contact_id>")
+api.add_resource(ContactOptOutResource, "/contacts/<int:contact_id>/opt-out")
+
+# ---- Group routes ----
+api.add_resource(GroupListResource, "/groups")
+api.add_resource(GroupResource, "/groups/<int:group_id>")
+api.add_resource(GroupContactsResource, "/groups/<int:group_id>/contacts")
+api.add_resource(GroupContactItemResource, "/groups/<int:group_id>/contacts/<int:contact_id>")
+
 
 
 if __name__ == "__main__":
