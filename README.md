@@ -1,54 +1,21 @@
-# Bulk-sms
+login 
 {
-  "name": "Kylian",
-  "email": "kylian@example.com",
-    "password": "kylian456"
+  "email": "admin@test.com",
+  "password": "password123"
 }
-{
-    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc2NTcwNzE2MywianRpIjoiZWZjMTNkZjgtMGI2Ny00N2I5LTgyYjUtNDQ1Y2RmNzg4NDc2IiwidHlwZSI6ImFjY2VzcyIsInN1YiI6IjEiLCJuYmYiOjE3NjU3MDcxNjMsImNzcmYiOiJiNDEyYWM0OC04YmI5LTQ0NjAtOWVjOS03NTc2ZDY1NDIyZTkiLCJleHAiOjE3NjU3MzU5NjMsInJvbGUiOiJ1c2VyIn0.RxB1aNZe0yN0Vws3QSLyUfMuXWcvXBX_mWPjwdKTtjs",
+
+   { "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc2NTg3NTUzOCwianRpIjoiOTRmODlhNjItMzIzOC00YWFkLWJjNDEtN2I0NDRkMTU0MGIxIiwidHlwZSI6ImFjY2VzcyIsInN1YiI6IjEiLCJuYmYiOjE3NjU4NzU1MzgsImNzcmYiOiIyOWU4ZmU4MC1iZTZjLTRlODItOGRjZS00Y2UyMWJjMzlhYzkiLCJleHAiOjE3NjU5MDQzMzgsInJvbGUiOiJhZG1pbiIsImNsaWVudF9hY2NvdW50X2lkIjoxfQ.3DH_9FByA38FcSv4z5TRf42VlFyc86SK9d8h3yWeMq8",
     "user": {
         "id": 1,
-        "name": "Kylian",
-        "email": "kylian@example.com",
-        "role": "user"
+        "email": "admin@test.com",
+        "role": "admin",
+        "client_account_id": 1
     }
 }
-contact
+billing/balance
 {
-  "name": "Client One",
-  "phone": "+254700111222",
-  "email": "client1@example.com"
-}
-{
-    "id": 1,
-    "name": "Client One",
-    "phone": "+254700111222",
-    "email": "client1@example.com",
-    "is_opted_out": false
-}
-group
-{
-  "name": "VIP Clients",
-  "description": "High value customers"
-  "description": "High value customers"
-}
-POSThtp://localhost:5000/groups/1/contacts
-{
-    "id": 1,
-    "name": "VIP Clients",
-    "contacts_count": 1
-}
-{
-  "id": 1,
-  "name": "VIP Clients",
-  "description": "High value customers",
-  "contacts": [
-    {
-      "id": 1,
-      "name": "Client One",
-      "phone": "+254700111222",
-      "email": "client1@example.com",
-      "is_opted_out": false
-    }
-  ]
+    "client_account_id": 1,
+    "credits_balance": 0,
+    "sell_price_per_sms_kes": "0.00",
+    "cost_price_per_sms_kes": "0.00"
 }
