@@ -4,6 +4,10 @@ import DashboardLayout from "../../Layout/DashboardLayout";
 import { FiDownload, FiSearch, FiArrowUp, FiArrowDown } from "react-icons/fi";
 import { CSVLink } from "react-csv";
 
+/* ======================
+   Types
+====================== */
+
 interface BaseContact {
   id: number;
   name: string;
@@ -21,8 +25,10 @@ interface Campaign {
   status: "Pending" | "Sent" | "Failed";
 }
 
+type SortKey = "name" | "recipientsCount" | "cost" | "date" | "status";
+
 type SortConfig = {
-  key: keyof Campaign;
+  key: SortKey;
   direction: "ascending" | "descending";
 };
 
@@ -48,11 +54,14 @@ export default function ReportPage() {
     },
   ]);
 
-  const [filter, setFilter] = useState<"All" | "Sent" | "Pending" | "Failed">("All");
+  const [filter, setFilter] =
+    useState<"All" | "Sent" | "Pending" | "Failed">("All");
   const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
 
-  // Filter + Search
+  /* ======================
+     Filter + Search
+  ====================== */
   const filteredCampaigns = useMemo(() => {
     return campaigns.filter(c => {
       const matchesStatus = filter === "All" || c.status === filter;
@@ -63,138 +72,203 @@ export default function ReportPage() {
     });
   }, [campaigns, filter, searchTerm]);
 
-  // Sorting
-  const sortedCampaigns = useMemo(() => {
-    if (!sortConfig) return filteredCampaigns;
-    return [...filteredCampaigns].sort((a, b) => {
-      const aKey = a[sortConfig.key];
-      const bKey = b[sortConfig.key];
+  /* ======================
+     Normalize for Sorting & CSV
+  ====================== */
+  const normalizedCampaigns = useMemo(() => {
+    return filteredCampaigns.map(c => ({
+      ...c,
+      recipientsCount: c.recipients.length,
+    }));
+  }, [filteredCampaigns]);
 
-      if (aKey < bKey) return sortConfig.direction === "ascending" ? -1 : 1;
-      if (aKey > bKey) return sortConfig.direction === "ascending" ? 1 : -1;
+  /* ======================
+     Sorting
+  ====================== */
+  const sortedCampaigns = useMemo(() => {
+    if (!sortConfig) return normalizedCampaigns;
+
+    return [...normalizedCampaigns].sort((a, b) => {
+      const aVal = a[sortConfig.key];
+      const bVal = b[sortConfig.key];
+
+      if (aVal < bVal) return sortConfig.direction === "ascending" ? -1 : 1;
+      if (aVal > bVal) return sortConfig.direction === "ascending" ? 1 : -1;
       return 0;
     });
-  }, [filteredCampaigns, sortConfig]);
+  }, [normalizedCampaigns, sortConfig]);
 
-  const requestSort = (key: keyof Campaign) => {
-    let direction: "ascending" | "descending" = "ascending";
-    if (sortConfig?.key === key && sortConfig.direction === "ascending") {
-      direction = "descending";
-    }
-    setSortConfig({ key, direction });
+  const requestSort = (key: SortKey) => {
+    setSortConfig(prev => ({
+      key,
+      direction:
+        prev?.key === key && prev.direction === "ascending"
+          ? "descending"
+          : "ascending",
+    }));
   };
 
+  /* ======================
+     Stats
+  ====================== */
   const totalCampaigns = filteredCampaigns.length;
-  const totalRecipients = filteredCampaigns.reduce((acc, c) => acc + c.recipients.length, 0);
+  const totalRecipients = filteredCampaigns.reduce(
+    (acc, c) => acc + c.recipients.length,
+    0
+  );
   const totalCost = filteredCampaigns.reduce((acc, c) => acc + c.cost, 0);
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
 
-        {/* Top Stats */}
+        {/* ======================
+           Top Stats
+        ====================== */}
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-indigo-100 p-4 rounded-2xl text-center">
-            <h2 className="text-gray-600 font-medium">Total Campaigns</h2>
-            <p className="text-2xl font-bold">{totalCampaigns}</p>
-          </div>
-          <div className="bg-yellow-100 p-4 rounded-2xl text-center">
-            <h2 className="text-gray-600 font-medium">Total Recipients</h2>
-            <p className="text-2xl font-bold">{totalRecipients}</p>
-          </div>
-          <div className="bg-green-100 p-4 rounded-2xl text-center">
-            <h2 className="text-gray-600 font-medium">Total Cost</h2>
-            <p className="text-2xl font-bold">{totalCost}</p>
-          </div>
+          <StatCard title="Total Campaigns" value={totalCampaigns} color="indigo" />
+          <StatCard title="Total Recipients" value={totalRecipients} color="yellow" />
+          <StatCard title="Total Cost" value={totalCost} color="green" />
         </section>
 
-        {/* Filters + Search + CSV */}
-        <section className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="font-medium">Filter by status:</span>
+        {/* ======================
+           Filters / Search / Export
+        ====================== */}
+        <section className="flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
+          <div className="flex flex-col sm:flex-row gap-3">
             <select
               value={filter}
-              onChange={e => setFilter(e.target.value as "All" | "Sent" | "Pending" | "Failed")}
-              className="border rounded px-3 py-2"
+              onChange={e =>
+                setFilter(e.target.value as "All" | "Sent" | "Pending" | "Failed")
+              }
+              className="border rounded-lg px-3 py-2"
             >
               <option value="All">All Statuses</option>
               <option value="Sent">Sent</option>
               <option value="Pending">Pending</option>
               <option value="Failed">Failed</option>
             </select>
-          </div>
 
-          <div className="flex items-center gap-2 border rounded px-3 py-2">
-            <FiSearch className="text-gray-500" />
-            <input
-              type="text"
-              placeholder="Search campaigns..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="outline-none w-full"
-            />
+            <div className="flex items-center gap-2 border rounded-lg px-3 py-2 w-full sm:w-64">
+              <FiSearch className="text-gray-500" />
+              <input
+                className="outline-none w-full"
+                placeholder="Search campaigns..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
           </div>
 
           <CSVLink
             data={sortedCampaigns}
             filename="campaign_report.csv"
-            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-xl hover:bg-green-700 transition"
+            className="inline-flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded-xl hover:bg-green-700"
           >
             <FiDownload /> Export CSV
           </CSVLink>
         </section>
 
-        {/* Campaign Table */}
-        <section className="bg-white rounded-2xl shadow-lg p-6 overflow-auto">
-          {sortedCampaigns.length > 0 ? (
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  {["name", "recipients", "cost", "date", "status"].map((key) => (
-                    <th
-                      key={key}
-                      className="px-4 py-2 border-b cursor-pointer select-none"
-                      onClick={() => requestSort(key as keyof Campaign)}
-                    >
-                      <div className="flex items-center gap-1">
-                        {key.charAt(0).toUpperCase() + key.slice(1)}
-                        {sortConfig?.key === key && (
-                          sortConfig.direction === "ascending" ? <FiArrowUp /> : <FiArrowDown />
-                        )}
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {sortedCampaigns.map(c => (
-                  <tr key={c.id} className="border-b hover:bg-indigo-50 transition">
-                    <td className="px-4 py-2">{c.name}</td>
-                    <td className="px-4 py-2">{c.recipients.length}</td>
-                    <td className="px-4 py-2">{c.cost}</td>
-                    <td className="px-4 py-2">{c.date}</td>
-                    <td className="px-4 py-2">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          c.status === "Sent"
-                            ? "bg-green-100 text-green-800"
-                            : c.status === "Pending"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {c.status}
-                      </span>
-                    </td>
-                  </tr>
+        {/* ======================
+           Desktop Table
+        ====================== */}
+        <section className="hidden md:block bg-white rounded-2xl shadow p-6 overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                {[
+                  { key: "name", label: "Name" },
+                  { key: "recipientsCount", label: "Recipients" },
+                  { key: "cost", label: "Cost" },
+                  { key: "date", label: "Date" },
+                  { key: "status", label: "Status" },
+                ].map(col => (
+                  <th
+                    key={col.key}
+                    onClick={() => requestSort(col.key as SortKey)}
+                    className="px-4 py-3 cursor-pointer select-none"
+                  >
+                    <div className="flex items-center gap-1">
+                      {col.label}
+                      {sortConfig?.key === col.key &&
+                        (sortConfig.direction === "ascending" ? (
+                          <FiArrowUp />
+                        ) : (
+                          <FiArrowDown />
+                        ))}
+                    </div>
+                  </th>
                 ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className="text-gray-500 mt-4">No campaigns found.</p>
-          )}
+              </tr>
+            </thead>
+            <tbody>
+              {sortedCampaigns.map(c => (
+                <tr key={c.id} className="border-b hover:bg-indigo-50">
+                  <td className="px-4 py-2">{c.name}</td>
+                  <td className="px-4 py-2">{c.recipientsCount}</td>
+                  <td className="px-4 py-2">{c.cost}</td>
+                  <td className="px-4 py-2">{c.date}</td>
+                  <td className="px-4 py-2">
+                    <StatusBadge status={c.status} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+
+        {/* ======================
+           Mobile Cards
+        ====================== */}
+        <section className="md:hidden space-y-4">
+          {sortedCampaigns.map(c => (
+            <div key={c.id} className="bg-white rounded-xl shadow p-4 space-y-2">
+              <div className="font-semibold">{c.name}</div>
+              <div className="text-sm text-gray-600">
+                Recipients: {c.recipientsCount}
+              </div>
+              <div className="text-sm">Cost: {c.cost}</div>
+              <div className="text-sm">Date: {c.date}</div>
+              <StatusBadge status={c.status} />
+            </div>
+          ))}
         </section>
       </div>
     </DashboardLayout>
+  );
+}
+
+/* ======================
+   Reusable Components
+====================== */
+
+function StatCard({
+  title,
+  value,
+  color,
+}: {
+  title: string;
+  value: number;
+  color: "indigo" | "yellow" | "green";
+}) {
+  return (
+    <div className={`bg-${color}-100 p-4 rounded-2xl text-center`}>
+      <h2 className="text-gray-600 font-medium">{title}</h2>
+      <p className="text-2xl font-bold">{value}</p>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: Campaign["status"] }) {
+  const styles = {
+    Sent: "bg-green-100 text-green-800",
+    Pending: "bg-yellow-100 text-yellow-800",
+    Failed: "bg-red-100 text-red-800",
+  };
+
+  return (
+    <span className={`px-3 py-1 rounded-full text-xs font-medium ${styles[status]}`}>
+      {status}
+    </span>
   );
 }
