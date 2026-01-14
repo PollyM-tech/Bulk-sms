@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 from datetime import datetime
+import secrets
+
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import MetaData
 from sqlalchemy_serializer import SerializerMixin
 from werkzeug.security import generate_password_hash, check_password_hash
-import secrets
 
 # -----------------------------
 # SQLAlchemy setup (naming convention)
@@ -27,9 +28,7 @@ db = SQLAlchemy(metadata=metadata)
 # -----------------------------
 class TimestampMixin:
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(
-        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
-    )
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
 
 # -----------------------------
@@ -37,18 +36,8 @@ class TimestampMixin:
 # -----------------------------
 group_contacts = db.Table(
     "group_contacts",
-    db.Column(
-        "group_id",
-        db.Integer,
-        db.ForeignKey("groups.id", ondelete="CASCADE"),
-        primary_key=True,
-    ),
-    db.Column(
-        "contact_id",
-        db.Integer,
-        db.ForeignKey("contacts.id", ondelete="CASCADE"),
-        primary_key=True,
-    ),
+    db.Column("group_id", db.Integer, db.ForeignKey("groups.id", ondelete="CASCADE"), primary_key=True),
+    db.Column("contact_id", db.Integer, db.ForeignKey("contacts.id", ondelete="CASCADE"), primary_key=True),
 )
 
 
@@ -56,10 +45,6 @@ group_contacts = db.Table(
 # Provider Config (AdvantaSMS upstream)
 # -----------------------------
 class ProviderConfig(db.Model, SerializerMixin, TimestampMixin):
-    """
-    Keep upstream config. If you prefer, store partner_id and api key ONLY in .env
-    and use this table for tracking/metadata.
-    """
     __tablename__ = "provider_configs"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -67,14 +52,13 @@ class ProviderConfig(db.Model, SerializerMixin, TimestampMixin):
     provider = db.Column(db.String(50), unique=True, nullable=False, default="advantasms")
     base_url = db.Column(db.String(255), nullable=False, default="https://quicksms.advantasms.com")
 
-    # You may store partner_id here, or in environment variables.
     partner_id = db.Column(db.String(60), nullable=True)
 
-    # DO NOT store raw API key unless you encrypt it. Keep it in .env.
-    api_key_hint = db.Column(db.String(64))  # e.g. "rotated 2025-12-16"
+    # Keep real API key in .env. This is only a hint for ops/auditing.
+    api_key_hint = db.Column(db.String(64))
     api_key_last_rotated_at = db.Column(db.DateTime)
 
-    default_shortcode = db.Column(db.String(20))  # optional: shortcode used by default
+    default_shortcode = db.Column(db.String(20))
     is_active = db.Column(db.Boolean, default=True, nullable=False)
 
     serialize_rules = ()
@@ -88,7 +72,7 @@ class Plan(db.Model, SerializerMixin, TimestampMixin):
 
     id = db.Column(db.Integer, primary_key=True)
 
-    name = db.Column(db.String(80), unique=True, nullable=False)  # Starter, Business...
+    name = db.Column(db.String(80), unique=True, nullable=False)
     monthly_fee_kes = db.Column(db.Integer, default=0, nullable=False)
 
     included_sms_units = db.Column(db.Integer, default=0, nullable=False)
@@ -126,93 +110,24 @@ class ClientAccount(db.Model, SerializerMixin, TimestampMixin):
     # Wallet / prepaid credits (SMS units)
     credits_balance = db.Column(db.Integer, default=0, nullable=False)
 
-    # Your resale control:
-    # - cost_price_per_sms_kes: what you pay upstream (e.g. 0.25)
-    # - sell_price_per_sms_kes: what you charge the client
     cost_price_per_sms_kes = db.Column(db.Numeric(10, 2), default=0.0, nullable=False)
     sell_price_per_sms_kes = db.Column(db.Numeric(10, 2), default=0.0, nullable=False)
 
-    # Optional: allow client-specific shortcode override
     default_shortcode = db.Column(db.String(20))
 
     # Relationships
-    users = db.relationship(
-        "User",
-        backref="client_account",
-        lazy=True,
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
-    api_keys = db.relationship(
-        "ApiKey",
-        backref="client_account",
-        lazy=True,
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
-    sender_ids = db.relationship(
-        "SenderID",
-        backref="client_account",
-        lazy=True,
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
-    contacts = db.relationship(
-        "Contact",
-        backref="client_account",
-        lazy=True,
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
-    groups = db.relationship(
-        "Group",
-        backref="client_account",
-        lazy=True,
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
-    subscriptions = db.relationship(
-        "Subscription",
-        backref="client_account",
-        lazy=True,
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
-    credit_transactions = db.relationship(
-        "CreditTransaction",
-        backref="client_account",
-        lazy=True,
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
-    invoices = db.relationship(
-        "Invoice",
-        backref="client_account",
-        lazy=True,
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
-    payments = db.relationship(
-        "Payment",
-        backref="client_account",
-        lazy=True,
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
-    campaigns = db.relationship(
-        "Campaign",
-        backref="client_account",
-        lazy=True,
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
-    messages = db.relationship(
-        "Message",
-        backref="client_account",
-        lazy=True,
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
+    users = db.relationship("User", backref="client_account", lazy=True, cascade="all, delete-orphan", passive_deletes=True)
+    api_keys = db.relationship("ApiKey", backref="client_account", lazy=True, cascade="all, delete-orphan", passive_deletes=True)
+    sender_ids = db.relationship("SenderID", backref="client_account", lazy=True, cascade="all, delete-orphan", passive_deletes=True)
+    contacts = db.relationship("Contact", backref="client_account", lazy=True, cascade="all, delete-orphan", passive_deletes=True)
+    groups = db.relationship("Group", backref="client_account", lazy=True, cascade="all, delete-orphan", passive_deletes=True)
+    subscriptions = db.relationship("Subscription", backref="client_account", lazy=True, cascade="all, delete-orphan", passive_deletes=True)
+    credit_transactions = db.relationship("CreditTransaction", backref="client_account", lazy=True, cascade="all, delete-orphan", passive_deletes=True)
+    invoices = db.relationship("Invoice", backref="client_account", lazy=True, cascade="all, delete-orphan", passive_deletes=True)
+    payments = db.relationship("Payment", backref="client_account", lazy=True, cascade="all, delete-orphan", passive_deletes=True)
+    mpesa_stk_requests = db.relationship("MpesaStkRequest", backref="client_account", lazy=True, cascade="all, delete-orphan", passive_deletes=True)
+    campaigns = db.relationship("Campaign", backref="client_account", lazy=True, cascade="all, delete-orphan", passive_deletes=True)
+    messages = db.relationship("Message", backref="client_account", lazy=True, cascade="all, delete-orphan", passive_deletes=True)
 
     serialize_rules = ()
 
@@ -225,18 +140,8 @@ class Subscription(db.Model, SerializerMixin, TimestampMixin):
 
     id = db.Column(db.Integer, primary_key=True)
 
-    client_account_id = db.Column(
-        db.Integer,
-        db.ForeignKey("client_accounts.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    plan_id = db.Column(
-        db.Integer,
-        db.ForeignKey("plans.id", ondelete="RESTRICT"),
-        nullable=False,
-        index=True,
-    )
+    client_account_id = db.Column(db.Integer, db.ForeignKey("client_accounts.id", ondelete="CASCADE"), nullable=False, index=True)
+    plan_id = db.Column(db.Integer, db.ForeignKey("plans.id", ondelete="RESTRICT"), nullable=False, index=True)
 
     status = db.Column(
         db.Enum("active", "suspended", "cancelled", name="subscription_status"),
@@ -247,7 +152,7 @@ class Subscription(db.Model, SerializerMixin, TimestampMixin):
     billing_start = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     billing_end = db.Column(db.DateTime, nullable=True)
 
-    # Snapshot fields: protects history even if Plan changes later
+    # Snapshot fields
     plan_name_snapshot = db.Column(db.String(80))
     monthly_fee_kes_snapshot = db.Column(db.Integer, default=0)
     included_sms_units_snapshot = db.Column(db.Integer, default=0)
@@ -268,18 +173,11 @@ class User(db.Model, SerializerMixin, TimestampMixin):
 
     id = db.Column(db.Integer, primary_key=True)
 
-    # allow superadmin not tied to a client
-    client_account_id = db.Column(
-        db.Integer,
-        db.ForeignKey("client_accounts.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-    )
+    client_account_id = db.Column(db.Integer, db.ForeignKey("client_accounts.id", ondelete="SET NULL"), nullable=True, index=True)
 
     name = db.Column(db.String(100))
 
-    # NOTE: if you later want same email under different clients, remove unique=True
-    # and add a composite unique (client_account_id, email).
+    # For multi-tenant email reuse later, remove unique=True and add composite unique
     email = db.Column(db.String(128), unique=True, nullable=False, index=True)
 
     password_hash = db.Column(db.String(256), nullable=False)
@@ -307,16 +205,11 @@ class ApiKey(db.Model, SerializerMixin, TimestampMixin):
 
     id = db.Column(db.Integer, primary_key=True)
 
-    client_account_id = db.Column(
-        db.Integer,
-        db.ForeignKey("client_accounts.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
+    client_account_id = db.Column(db.Integer, db.ForeignKey("client_accounts.id", ondelete="CASCADE"), nullable=False, index=True)
 
-    name = db.Column(db.String(80), nullable=False)  # "Clinic EMR", "POS", etc.
+    name = db.Column(db.String(80), nullable=False)
     key_prefix = db.Column(db.String(12), nullable=False, index=True)
-    key_hash = db.Column(db.String(256), nullable=False)  # store hashed, not raw
+    key_hash = db.Column(db.String(256), nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
 
     last_used_at = db.Column(db.DateTime)
@@ -340,14 +233,8 @@ class SenderID(db.Model, SerializerMixin, TimestampMixin):
 
     id = db.Column(db.Integer, primary_key=True)
 
-    client_account_id = db.Column(
-        db.Integer,
-        db.ForeignKey("client_accounts.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
+    client_account_id = db.Column(db.Integer, db.ForeignKey("client_accounts.id", ondelete="CASCADE"), nullable=False, index=True)
 
-    # Their sender ID template mentions max 11 chars; networks vary. 15 is safer in DB.
     sender_id = db.Column(db.String(15), nullable=False)
 
     purpose = db.Column(
@@ -362,24 +249,10 @@ class SenderID(db.Model, SerializerMixin, TimestampMixin):
         nullable=False,
     )
 
-    # Per-network tracking
-    safaricom_status = db.Column(
-        db.Enum("pending", "approved", "rejected", name="sid_safaricom_status"),
-        default="pending",
-        nullable=False,
-    )
-    airtel_status = db.Column(
-        db.Enum("pending", "approved", "rejected", name="sid_airtel_status"),
-        default="pending",
-        nullable=False,
-    )
-    telkom_status = db.Column(
-        db.Enum("pending", "approved", "rejected", name="sid_telkom_status"),
-        default="pending",
-        nullable=False,
-    )
+    safaricom_status = db.Column(db.Enum("pending", "approved", "rejected", name="sid_safaricom_status"), default="pending", nullable=False)
+    airtel_status = db.Column(db.Enum("pending", "approved", "rejected", name="sid_airtel_status"), default="pending", nullable=False)
+    telkom_status = db.Column(db.Enum("pending", "approved", "rejected", name="sid_telkom_status"), default="pending", nullable=False)
 
-    # One-off registration fee per network (as per your agreement info)
     network_setup_fee_kes = db.Column(db.Integer, default=6000, nullable=False)
 
     requested_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
@@ -401,33 +274,19 @@ class Contact(db.Model, SerializerMixin, TimestampMixin):
 
     id = db.Column(db.Integer, primary_key=True)
 
-    client_account_id = db.Column(
-        db.Integer,
-        db.ForeignKey("client_accounts.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
+    client_account_id = db.Column(db.Integer, db.ForeignKey("client_accounts.id", ondelete="CASCADE"), nullable=False, index=True)
 
-    created_by_user_id = db.Column(
-        db.Integer,
-        db.ForeignKey("users.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-    )
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     created_by = db.relationship("User", foreign_keys=[created_by_user_id])
 
     name = db.Column(db.String(100))
     phone = db.Column(db.String(20), nullable=False)
-    phone_e164 = db.Column(db.String(20), index=True)  # +2547...
+    phone_e164 = db.Column(db.String(20), index=True)
 
     email = db.Column(db.String(128))
     is_opted_out = db.Column(db.Boolean, default=False, nullable=False)
 
-    groups = db.relationship(
-        "Group",
-        secondary=group_contacts,
-        back_populates="contacts",
-    )
+    groups = db.relationship("Group", secondary=group_contacts, back_populates="contacts")
 
     __table_args__ = (
         db.Index("ix_contacts_client_phone", "client_account_id", "phone"),
@@ -445,29 +304,15 @@ class Group(db.Model, SerializerMixin, TimestampMixin):
 
     id = db.Column(db.Integer, primary_key=True)
 
-    client_account_id = db.Column(
-        db.Integer,
-        db.ForeignKey("client_accounts.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
+    client_account_id = db.Column(db.Integer, db.ForeignKey("client_accounts.id", ondelete="CASCADE"), nullable=False, index=True)
 
-    created_by_user_id = db.Column(
-        db.Integer,
-        db.ForeignKey("users.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-    )
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     created_by = db.relationship("User", foreign_keys=[created_by_user_id])
 
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
 
-    contacts = db.relationship(
-        "Contact",
-        secondary=group_contacts,
-        back_populates="groups",
-    )
+    contacts = db.relationship("Contact", secondary=group_contacts, back_populates="groups")
 
     __table_args__ = (
         db.UniqueConstraint("client_account_id", "name", name="uq_group_name_per_client"),
@@ -485,12 +330,7 @@ class Invoice(db.Model, SerializerMixin, TimestampMixin):
 
     id = db.Column(db.Integer, primary_key=True)
 
-    client_account_id = db.Column(
-        db.Integer,
-        db.ForeignKey("client_accounts.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
+    client_account_id = db.Column(db.Integer, db.ForeignKey("client_accounts.id", ondelete="CASCADE"), nullable=False, index=True)
 
     invoice_no = db.Column(db.String(40), unique=True, nullable=False, index=True)
 
@@ -508,21 +348,8 @@ class Invoice(db.Model, SerializerMixin, TimestampMixin):
     due_date = db.Column(db.DateTime)
     note = db.Column(db.String(255))
 
-    items = db.relationship(
-        "InvoiceItem",
-        backref="invoice",
-        lazy=True,
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
-
-    payments = db.relationship(
-        "Payment",
-        backref="invoice",
-        lazy=True,
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
+    items = db.relationship("InvoiceItem", backref="invoice", lazy=True, cascade="all, delete-orphan", passive_deletes=True)
+    payments = db.relationship("Payment", backref="invoice", lazy=True, cascade="all, delete-orphan", passive_deletes=True)
 
     serialize_rules = ()
 
@@ -532,21 +359,14 @@ class InvoiceItem(db.Model, SerializerMixin, TimestampMixin):
 
     id = db.Column(db.Integer, primary_key=True)
 
-    invoice_id = db.Column(
-        db.Integer,
-        db.ForeignKey("invoices.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
+    invoice_id = db.Column(db.Integer, db.ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False, index=True)
 
-    # e.g. "SMS Topup 10,000 units", "Sender ID Setup - Safaricom"
     description = db.Column(db.String(255), nullable=False)
 
     quantity = db.Column(db.Integer, default=1, nullable=False)
     unit_price_kes = db.Column(db.Numeric(10, 2), default=0, nullable=False)
     line_total_kes = db.Column(db.Numeric(10, 2), default=0, nullable=False)
 
-    # Optional linkage
     sender_id_id = db.Column(db.Integer, db.ForeignKey("sender_ids.id", ondelete="SET NULL"), nullable=True, index=True)
     subscription_id = db.Column(db.Integer, db.ForeignKey("subscriptions.id", ondelete="SET NULL"), nullable=True, index=True)
 
@@ -554,99 +374,126 @@ class InvoiceItem(db.Model, SerializerMixin, TimestampMixin):
 
 
 class Payment(db.Model, SerializerMixin, TimestampMixin):
+    """
+    Payment row should be idempotent for a given STK checkout_request_id.
+    This prevents duplicate payment rows for the same STK request.
+    """
     __tablename__ = "payments"
 
     id = db.Column(db.Integer, primary_key=True)
 
-    client_account_id = db.Column(
-        db.Integer,
-        db.ForeignKey("client_accounts.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-
-    invoice_id = db.Column(
-        db.Integer,
-        db.ForeignKey("invoices.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-    )
+    client_account_id = db.Column(db.Integer, db.ForeignKey("client_accounts.id", ondelete="CASCADE"), nullable=False, index=True)
+    invoice_id = db.Column(db.Integer, db.ForeignKey("invoices.id", ondelete="SET NULL"), nullable=True, index=True)
 
     status = db.Column(
         db.Enum("pending", "confirmed", "failed", "reversed", name="payment_status"),
         default="pending",
         nullable=False,
+        index=True,
     )
 
     method = db.Column(
         db.Enum("mpesa", "bank", "cash", "card", name="payment_method"),
         default="mpesa",
         nullable=False,
+        index=True,
     )
 
     amount_kes = db.Column(db.Numeric(10, 2), nullable=False)
 
-    # M-Pesa details (optional)
+    # M-Pesa details
     mpesa_receipt = db.Column(db.String(40), index=True)
     payer_phone = db.Column(db.String(20))
     raw_payload = db.Column(db.JSON)
 
+    # Key fields for idempotency and reconciliation
+    checkout_request_id = db.Column(db.String(80), index=True)
+    merchant_request_id = db.Column(db.String(80), index=True)
+
     confirmed_at = db.Column(db.DateTime)
+
+    __table_args__ = (
+        db.UniqueConstraint("client_account_id", "checkout_request_id", name="uq_payment_client_checkout"),
+        db.Index("ix_payments_client_status", "client_account_id", "status"),
+    )
 
     serialize_rules = ()
 
 
 # -----------------------------
-# CREDIT TRANSACTIONS LEDGER (topups/deductions)
+# CREDIT TRANSACTIONS LEDGER
 # -----------------------------
 class CreditTransaction(db.Model, SerializerMixin, TimestampMixin):
     __tablename__ = "credit_transactions"
 
     id = db.Column(db.Integer, primary_key=True)
 
-    client_account_id = db.Column(
-        db.Integer,
-        db.ForeignKey("client_accounts.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
+    client_account_id = db.Column(db.Integer, db.ForeignKey("client_accounts.id", ondelete="CASCADE"), nullable=False, index=True)
 
-    tx_type = db.Column(
-        db.Enum("topup", "deduction", "refund", "adjustment", name="credit_tx_type"),
-        nullable=False,
-    )
+    tx_type = db.Column(db.Enum("topup", "deduction", "refund", "adjustment", name="credit_tx_type"), nullable=False)
 
-    amount_units = db.Column(db.Integer, nullable=False)  # positive units; direction comes from tx_type
+    amount_units = db.Column(db.Integer, nullable=False)
     balance_before = db.Column(db.Integer, nullable=False)
     balance_after = db.Column(db.Integer, nullable=False)
 
-    # Link to billing objects
-    invoice_id = db.Column(
-        db.Integer,
-        db.ForeignKey("invoices.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-    )
-    payment_id = db.Column(
-        db.Integer,
-        db.ForeignKey("payments.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-    )
+    invoice_id = db.Column(db.Integer, db.ForeignKey("invoices.id", ondelete="SET NULL"), nullable=True, index=True)
+    payment_id = db.Column(db.Integer, db.ForeignKey("payments.id", ondelete="SET NULL"), nullable=True, index=True)
 
-    reference = db.Column(db.String(120))  # mpesa_code, invoice_no, campaign_id etc.
+    reference = db.Column(db.String(120))
     description = db.Column(db.String(255))
 
-    created_by_user_id = db.Column(
-        db.Integer,
-        db.ForeignKey("users.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-    )
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     created_by = db.relationship("User", foreign_keys=[created_by_user_id])
 
     invoice = db.relationship("Invoice", foreign_keys=[invoice_id])
     payment = db.relationship("Payment", foreign_keys=[payment_id])
+
+    serialize_rules = ()
+
+
+# -----------------------------
+# MPESA STK REQUEST MODEL
+# -----------------------------
+class MpesaStkRequest(db.Model, SerializerMixin, TimestampMixin):
+    """
+    Stores the initial STK Push request so the callback can be mapped to the right tenant.
+    Also helps idempotency (avoid double-crediting).
+    """
+    __tablename__ = "mpesa_stk_requests"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    client_account_id = db.Column(db.Integer, db.ForeignKey("client_accounts.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    invoice_id = db.Column(db.Integer, db.ForeignKey("invoices.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    merchant_request_id = db.Column(db.String(80), index=True)
+    checkout_request_id = db.Column(db.String(80), unique=True, nullable=False, index=True)
+
+    phone = db.Column(db.String(20), nullable=False)
+    amount_kes = db.Column(db.Numeric(10, 2), nullable=False)
+
+    status = db.Column(
+        db.Enum("pending", "confirmed", "failed", name="mpesa_stk_request_status"),
+        default="pending",
+        nullable=False,
+        index=True,
+    )
+
+    mpesa_receipt = db.Column(db.String(40), unique=True, index=True)
+
+    # Callback result
+    result_code = db.Column(db.Integer, nullable=True, index=True)
+    result_desc = db.Column(db.String(255), nullable=True)
+
+    raw_request = db.Column(db.JSON)
+    raw_callback = db.Column(db.JSON)
+
+    invoice = db.relationship("Invoice")
+
+    __table_args__ = (
+        db.Index("ix_mpesa_stk_client_status", "client_account_id", "status"),
+    )
 
     serialize_rules = ()
 
@@ -659,19 +506,9 @@ class Campaign(db.Model, SerializerMixin, TimestampMixin):
 
     id = db.Column(db.Integer, primary_key=True)
 
-    client_account_id = db.Column(
-        db.Integer,
-        db.ForeignKey("client_accounts.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
+    client_account_id = db.Column(db.Integer, db.ForeignKey("client_accounts.id", ondelete="CASCADE"), nullable=False, index=True)
 
-    sender_id_id = db.Column(
-        db.Integer,
-        db.ForeignKey("sender_ids.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-    )
+    sender_id_id = db.Column(db.Integer, db.ForeignKey("sender_ids.id", ondelete="SET NULL"), nullable=True, index=True)
     sender_id = db.relationship("SenderID")
 
     name = db.Column(db.String(150), nullable=False)
@@ -700,21 +537,10 @@ class Campaign(db.Model, SerializerMixin, TimestampMixin):
     total_sent = db.Column(db.Integer, default=0, nullable=False)
     total_failed = db.Column(db.Integer, default=0, nullable=False)
 
-    created_by_user_id = db.Column(
-        db.Integer,
-        db.ForeignKey("users.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-    )
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     created_by = db.relationship("User", foreign_keys=[created_by_user_id])
 
-    messages = db.relationship(
-        "Message",
-        backref="campaign",
-        lazy=True,
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
+    messages = db.relationship("Message", backref="campaign", lazy=True, cascade="all, delete-orphan", passive_deletes=True)
 
     __table_args__ = (
         db.Index("ix_campaigns_client_status", "client_account_id", "status"),
@@ -731,26 +557,11 @@ class Message(db.Model, SerializerMixin, TimestampMixin):
 
     id = db.Column(db.Integer, primary_key=True)
 
-    client_account_id = db.Column(
-        db.Integer,
-        db.ForeignKey("client_accounts.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
+    client_account_id = db.Column(db.Integer, db.ForeignKey("client_accounts.id", ondelete="CASCADE"), nullable=False, index=True)
 
-    campaign_id = db.Column(
-        db.Integer,
-        db.ForeignKey("campaigns.id", ondelete="CASCADE"),
-        nullable=True,
-        index=True,
-    )
+    campaign_id = db.Column(db.Integer, db.ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=True, index=True)
 
-    contact_id = db.Column(
-        db.Integer,
-        db.ForeignKey("contacts.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-    )
+    contact_id = db.Column(db.Integer, db.ForeignKey("contacts.id", ondelete="SET NULL"), nullable=True, index=True)
     contact = db.relationship("Contact")
 
     phone = db.Column(db.String(20), nullable=False)
@@ -772,20 +583,17 @@ class Message(db.Model, SerializerMixin, TimestampMixin):
         index=True,
     )
 
-    # Units billed (e.g. 1 SMS or 2 SMS depending on length)
     units = db.Column(db.Integer, default=1, nullable=False)
 
-    # Snapshot the prices used at send time (so later price changes don't affect history)
     sell_price_per_sms_kes_snapshot = db.Column(db.Numeric(10, 2))
     cost_price_per_sms_kes_snapshot = db.Column(db.Numeric(10, 2))
 
-    # Provider tracking (AdvantaSMS)
     provider = db.Column(db.String(50), default="advantasms", nullable=False)
 
-    provider_message_id = db.Column(db.String(128), index=True)  # messageID from Advanta
-    client_sms_id = db.Column(db.String(64), index=True)  # clientsmsid for bulk (if you set one)
+    provider_message_id = db.Column(db.String(128), index=True)
+    client_sms_id = db.Column(db.String(64), index=True)
 
-    provider_status = db.Column(db.String(60))  # raw status string
+    provider_status = db.Column(db.String(60))
     provider_response_code = db.Column(db.Integer)
     provider_response_desc = db.Column(db.String(120))
     network_id = db.Column(db.String(20))

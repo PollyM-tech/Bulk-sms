@@ -51,3 +51,9 @@ def register_resources(api: Api) -> None:
     api.add_resource(SendMessageResource, "/messages/send")
     api.add_resource(SendOtpResource, "/messages/send-otp")
     api.add_resource(RefreshDlrResource, "/messages/<int:message_id>/refresh-dlr")
+
+    #mpesa routes will be added in app.py
+    print("MPESA_ENV:", self.env)
+    print("BASE_URL:", self.base_url)
+    print("CK:", repr(self.consumer_key), "len=", len(self.consumer_key))
+    print("CS:", repr(self.consumer_secret), "len=", len(self.consumer_secret))
